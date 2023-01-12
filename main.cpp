@@ -54,20 +54,58 @@ int startup(unsigned short *port){
 
 }
 
+//从套接字读取一行，返回读取数据字节数
+int get_line(int sock, char *buff, int size){
+    char charRecv = 0;
+    int i;
+    while(charRecv!='\n' && i<size-1){
+        if(recv(sock, &charRecv, 1, 0) > 0){
+            if(charRecv=='r'){
+                if(recv(sock, &charRecv, 1, MSG_PEEK)>0 && charRecv=='\n') recv(sock, &charRecv, 1, 0);
+                else charRecv = '\n';
+            }
+            buff[i++] = charRecv;
+        }
+        else break;
+    }
+    buff[i] = 0;
+    return i;
+}
+
 //处理请求线程函数
 DWORD WINAPI accept_request(LPVOID arg){
+    //解析套接字请求
+    char buff[1024], mode[225], add[225], prot[225];
+//    char *p_buff = buff, *p_mode = mode, *p_prot = prot;
+    int client_sock = (SOCKET)arg;
+    int chars_num = get_line(client_sock, buff, sizeof(buff));
+//    while(!isspace(*p_buff)){
+//        *p_mode = *p_buff;
+//        *p_buff++;
+//        *p_mode++;
+//    }
+//    while(!isspace(*p_buff)){
+//        *p_prot = *p_buff;
+//        *p_buff++;
+//        *p_prot++;
+//    }
+
+//    cout<<mode<<endl;
+//    cout<<prot<<endl;
+    cout<<"func:"<<__func__ <<"\tline"<<__LINE__<<":\n"<<buff;
 
     return 0;
 }
 
 int main() {
-    unsigned short port = 0;
+    unsigned short port = 8990;
     int server_sock = startup(&port);
     sockaddr_in client_addr;
     int client_addr_len = sizeof(client_addr);
     cout<<"服务启动，正在监听"<<port<<"端口"<<endl;
     //循环等待提供服务
     while(1){
+//        cout<<"a";
         //创建用户套接字
         int client_sock = accept(server_sock, (sockaddr*)&client_addr, &client_addr_len);
         if(client_sock < 0) error_die("创建客户套接字失败");
@@ -75,6 +113,6 @@ int main() {
         DWORD threadID = 0;
         CreateThread(0, 0, accept_request, (void*)client_sock, 0, &threadID);
     }
-    closesocket(server_sock);
-    return 0;
+//    closesocket(server_sock);
+//    return 0;
 }
