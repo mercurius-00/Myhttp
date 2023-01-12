@@ -72,27 +72,42 @@ int get_line(int sock, char *buff, int size){
     return i;
 }
 
+int unimplement(SOCKET client_socket){
+//    todo
+    return 0;
+}
+
 //处理请求线程函数
 DWORD WINAPI accept_request(LPVOID arg){
     //解析套接字请求
-    char buff[1024], mode[225], add[225], prot[225];
-//    char *p_buff = buff, *p_mode = mode, *p_prot = prot;
+    char buff[1024], mode[225], resource[225], protocol[225];
+    int buff_index = 0, temp_index = 0;
     int client_sock = (SOCKET)arg;
-    int chars_num = get_line(client_sock, buff, sizeof(buff));
-//    while(!isspace(*p_buff)){
-//        *p_mode = *p_buff;
-//        *p_buff++;
-//        *p_mode++;
-//    }
-//    while(!isspace(*p_buff)){
-//        *p_prot = *p_buff;
-//        *p_buff++;
-//        *p_prot++;
-//    }
+    get_line(client_sock, buff, sizeof(buff));
+    cout<<"func:"<<__func__ <<"    line"<<__LINE__<<"    request:"<<buff;
 
-//    cout<<mode<<endl;
-//    cout<<prot<<endl;
-    cout<<"func:"<<__func__ <<"\tline"<<__LINE__<<":\n"<<buff;
+    while(!isspace(buff[buff_index]) && temp_index < sizeof(mode) - 1) mode[temp_index++] = buff[buff_index++];
+    mode[temp_index] = 0;
+    temp_index = 0;
+    cout<<"mode:\""<<mode<<"\"    ";
+    while(isspace(buff[buff_index]) && temp_index < sizeof(mode) - 1) buff_index++;
+
+    while(!isspace(buff[buff_index]) && temp_index < sizeof(mode) - 1) resource[temp_index++] = buff[buff_index++];
+    resource[temp_index] = 0;
+    temp_index = 0;
+    cout << "resource:\"" << resource << "\"    ";
+    while(isspace(buff[buff_index]) && temp_index < sizeof(mode) - 1) buff_index++;
+
+    while(!isspace(buff[buff_index]) && temp_index < sizeof(mode) - 1) protocol[temp_index++] = buff[buff_index++];
+    protocol[temp_index] = 0;
+    temp_index = 0;
+    cout << "protocol:\"" << protocol << "\"" << endl;
+    while(isspace(buff[buff_index]) && temp_index < sizeof(mode) - 1) buff_index++;
+
+    if(stricmp(mode, "GET") && stricmp(mode, "POST")){
+        unimplement(client_sock);
+        return 0;
+    }
 
     return 0;
 }
