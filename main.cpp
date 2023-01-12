@@ -1,6 +1,7 @@
 #include <iostream>
 #include <winsock2.h>
-#pragma comment(lib, "WS2_32.lib")
+#pragma comment(lib, "ws2_32.lib")
+using namespace std;
 
 
 void error_die(const char *str){
@@ -10,42 +11,70 @@ void error_die(const char *str){
 
 
 int startup(unsigned short *port){
-    //ç½‘ç»œé€šä¿¡åˆå§‹åŒ–
-    WSADATA data;   //SADATAï¼šwin socketä¸“ç”¨æ•°æ®ç±»å‹
-    bool startup_res = WSAStartup(MAKEWORD(1, 1), &data);   //1.1ç‰ˆæœ¬åè®® åˆå§‹åŒ–ä¿¡æ¯ä¿å­˜åˆ°data
-    if(startup_res) error_die("ç½‘ç»œé€šä¿¡åˆå§‹åŒ–å¤±è´¥");    //è¿”å›å€¼ä¸ä¸º0 åˆå§‹åŒ–å¤±è´¥
+    //ÍøÂçÍ¨ĞÅ³õÊ¼»¯
+    WSADATA data;   //SADATA£ºwin socket×¨ÓÃÊı¾İÀàĞÍ
+    bool startup_res = WSAStartup(MAKEWORD(1, 1), &data);   //1.1°æ±¾Ğ­Òé ³õÊ¼»¯ĞÅÏ¢±£´æµ½data
+    if(startup_res) error_die("ÍøÂçÍ¨ĞÅ³õÊ¼»¯Ê§°Ü");    //·µ»ØÖµ²»Îª0 ³õÊ¼»¯Ê§°Ü
 
-    //åˆ›å»ºå¥—æ¥å­—ï¼ˆsocketï¼‰
-    //PF_INET:å¥—æ¥å­—ç±»å‹ä¸ºç½‘ç»œå¥—æ¥å­—, SOCK_STREAM:æ•°æ®ä¼ è¾“ç±»å‹ä¸ºæ•°æ®æµ, IPPROTO_TCP:åè®®ä½¿ç”¨TCPåè®®
+    //´´½¨Ì×½Ó×Ö£¨socket£©
+    //PF_INET:Ì×½Ó×ÖÀàĞÍÎªÍøÂçÌ×½Ó×Ö, SOCK_STREAM:Êı¾İ´«ÊäÀàĞÍÎªÊı¾İÁ÷, IPPROTO_TCP:Ğ­ÒéÊ¹ÓÃTCPĞ­Òé
     int server_socket = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if(server_socket == -1) error_die("socketåˆ›å»ºå¤±è´¥");    //è¿”å›å€¼ä¸º-1 åˆå§‹åŒ–å¤±è´¥
+    if(server_socket < 0) error_die("socket´´½¨Ê§°Ü");    //·µ»ØÖµÎª-1 ³õÊ¼»¯Ê§°Ü
 
-    //è®¾ç½®å¥—æ¥å­—å±æ€§(å®ç°ç«¯å£å¯å¤ç”¨)
+    //ÉèÖÃÌ×½Ó×ÖÊôĞÔ(ÊµÏÖ¶Ë¿Ú¿É¸´ÓÃ)
     int opt = 1;
-    //setsockopt(è¦è®¾ç½®çš„å¥—æ¥å­—, level, è¦è®¾ç½®çš„å±æ€§, å±æ€§å†…å®¹åœ°å€(const char*)ï¼Œ å±æ€§å†…å®¹é•¿åº¦)
+    //setsockopt(ÒªÉèÖÃµÄÌ×½Ó×Ö, level, ÒªÉèÖÃµÄÊôĞÔ, ÊôĞÔÄÚÈİµØÖ·(const char*)£¬ ÊôĞÔÄÚÈİ³¤¶È)
     int setopt_res = setsockopt(server_socket, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt));
-    if(setopt_res == -1) error_die("è®¾ç½®å¥—æ¥å­—å±æ€§å¤±è´¥");
+    if(setopt_res < 0) error_die("ÉèÖÃÌ×½Ó×ÖÊôĞÔÊ§°Ü");
 
-    //é…ç½®æœåŠ¡å™¨æ®µç½‘ç»œåœ°å€
+    //ÅäÖÃ·şÎñÆ÷¶ÎÍøÂçµØÖ·
     sockaddr_in server_addr;
-    memset(&server_addr, 0, sizeof(server_addr)); //å°†addrå†…å­˜å…¨éƒ¨è®¾ä¸º0ï¼ˆåˆå§‹åŒ–ï¼‰
+    memset(&server_addr, 0, sizeof(server_addr)); //½«addrÄÚ´æÈ«²¿ÉèÎª0£¨³õÊ¼»¯£©
     server_addr.sin_family = PF_INET;
     server_addr.sin_port = htons(*port);
     server_addr.sin_addr.s_addr = INADDR_ANY;
 
-    //ç»‘å®šå¥—æ¥å­—ä¸æœåŠ¡å™¨ç½‘ç»œåœ°å€
+    //°ó¶¨Ì×½Ó×ÖÓë·şÎñÆ÷ÍøÂçµØÖ·
     int bind_res = bind(server_socket, (sockaddr*)&server_addr, sizeof(server_addr));
-    if(bind_res < 0) error_die("å¥—æ¥å­—ä¸æœåŠ¡å™¨ç½‘ç»œåœ°å€ç»‘å®šå¤±è´¥");
+    if(bind_res < 0) error_die("Ì×½Ó×ÖÓë·şÎñÆ÷ÍøÂçµØÖ·°ó¶¨Ê§°Ü");
 
-    //åˆ›å»ºç›‘å¬é˜Ÿåˆ—
+    //¶¯Ì¬·ÖÅä½Ó¿Ú
+    if(*port == 0){
+        int addr_len = sizeof(server_addr);
+        //getsocknameº¯Êı×Ô¶¯·ÖÅä¶Ë¿ÚºÅ¸³Öµµ½server_addr
+        if(getsockname(server_socket, (sockaddr*)&server_addr, &addr_len) < 0) error_die("¶¯Ì¬·ÖÅä¶Ë¿ÚÊ§°Ü");
+        *port = server_addr.sin_port;
+    }
 
+    //´´½¨¼àÌı¶ÓÁĞ
+    if(listen(server_socket, 5)) error_die("´´½¨¼àÌı¶ÓÁĞÊ§°Ü");
+
+    return server_socket;
 
 
 }
 
+//´¦ÀíÇëÇóÏß³Ìº¯Êı
+DWORD WINAPI accept_request(LPVOID arg){
+
+    return 0;
+}
+
 int main() {
-    unsigned short port = 80;
+    unsigned short port = 0;
     int server_sock = startup(&port);
-    cout<<"æœåŠ¡å¯åŠ¨ï¼Œæ­£åœ¨ç›‘å¬"<<port<<"ç«¯å£"<<endl;
+    sockaddr_in client_addr;
+    int client_addr_len = sizeof(client_addr);
+    cout<<"·şÎñÆô¶¯£¬ÕıÔÚ¼àÌı"<<port<<"¶Ë¿Ú"<<endl;
+    //Ñ­»·µÈ´ıÌá¹©·şÎñ
+    while(1){
+        //´´½¨ÓÃ»§Ì×½Ó×Ö
+        int client_sock = accept(server_sock, (sockaddr*)&client_addr, &client_addr_len);
+        if(client_sock < 0) error_die("´´½¨¿Í»§Ì×½Ó×ÖÊ§°Ü");
+        //´´½¨Ïß³Ì£¨windowsÏß³Ì£©
+        DWORD threadID = 0;
+        CreateThread(0, 0, accept_request, (void*)client_sock, 0, &threadID);
+    }
+    closesocket(server_sock);
     return 0;
 }
