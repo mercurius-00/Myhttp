@@ -1,17 +1,19 @@
 #include <iostream>
 #include <winsock2.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #pragma comment(lib, "ws2_32.lib")
 using namespace std;
 
-
+//错误处理
 void error_die(const char *str){
     perror(str);
     exit(1);
 }
 
-
+//网络通信初始化(返回socket)
 int startup(unsigned short *port){
-    //网络通信初始化
+
     WSADATA data;   //SADATA：win socket专用数据类型
     bool startup_res = WSAStartup(MAKEWORD(1, 1), &data);   //1.1版本协议 初始化信息保存到data
     if(startup_res) error_die("网络通信初始化失败");    //返回值不为0 初始化失败
@@ -54,10 +56,10 @@ int startup(unsigned short *port){
 
 }
 
-//从套接字读取一行，返回读取数据字节数
+//从套接字读取一行(返回读取数据字节数)
 int get_line(int sock, char *buff, int size){
     char charRecv = 0;
-    int i;
+    int i = 0;
     while(charRecv!='\n' && i<size-1){
         if(recv(sock, &charRecv, 1, 0) > 0){
             if(charRecv=='r'){
@@ -72,42 +74,63 @@ int get_line(int sock, char *buff, int size){
     return i;
 }
 
-int unimplement(SOCKET client_socket){
+//取消实现
+void unimplement(SOCKET client_socket){
 //    todo
-    return 0;
+}
+
+void resource_not_found(SOCKET client_socket){
+//    todo
 }
 
 //处理请求线程函数
 DWORD WINAPI accept_request(LPVOID arg){
     //解析套接字请求
-    char buff[1024], mode[225], resource[225], protocol[225];
-    int buff_index = 0, temp_index = 0;
+    char resources_path[10] = "Resources";  //资源目录名
+    char buff[1024];    //存整个请求报文
+    char mode[200]; //存请求方法名
+    char resource[200]; //存请求URL
+    char protocol[200];   //存请求协议版本
+    int buff_pointer = 0, temp_pointer = 0;
     int client_sock = (SOCKET)arg;
+    int chars_count;
     get_line(client_sock, buff, sizeof(buff));
-    cout<<"func:"<<__func__ <<"    line"<<__LINE__<<"    request:"<<buff;
+    cout<<"In "<<__func__ <<" line"<<__LINE__<<":\nrequest: "<<buff;
 
-    while(!isspace(buff[buff_index]) && temp_index < sizeof(mode) - 1) mode[temp_index++] = buff[buff_index++];
-    mode[temp_index] = 0;
-    temp_index = 0;
-    cout<<"mode:\""<<mode<<"\"    ";
-    while(isspace(buff[buff_index]) && temp_index < sizeof(mode) - 1) buff_index++;
+    while(!isspace(buff[buff_pointer]) && temp_pointer < sizeof(mode) - 1) mode[temp_pointer++] = buff[buff_pointer++];
+    mode[temp_pointer] = 0;
+    temp_pointer = 0;
+    cout<<"mode: \""<<mode<<"\"\n";
+    while(isspace(buff[buff_pointer]) && temp_pointer < sizeof(mode) - 1) buff_pointer++;
 
-    while(!isspace(buff[buff_index]) && temp_index < sizeof(mode) - 1) resource[temp_index++] = buff[buff_index++];
-    resource[temp_index] = 0;
-    temp_index = 0;
-    cout << "resource:\"" << resource << "\"    ";
-    while(isspace(buff[buff_index]) && temp_index < sizeof(mode) - 1) buff_index++;
+    while(!isspace(buff[buff_pointer]) && temp_pointer < sizeof(mode) - 1) resource[temp_pointer++] = buff[buff_pointer++];
+    resource[temp_pointer] = 0;
+    temp_pointer = 0;
+    cout << "resource: \"" << resource << "\"\n";
+    while(isspace(buff[buff_pointer]) && temp_pointer < sizeof(mode) - 1) buff_pointer++;
 
-    while(!isspace(buff[buff_index]) && temp_index < sizeof(mode) - 1) protocol[temp_index++] = buff[buff_index++];
-    protocol[temp_index] = 0;
-    temp_index = 0;
-    cout << "protocol:\"" << protocol << "\"" << endl;
-    while(isspace(buff[buff_index]) && temp_index < sizeof(mode) - 1) buff_index++;
+    while(!isspace(buff[buff_pointer]) && temp_pointer < sizeof(mode) - 1) protocol[temp_pointer++] = buff[buff_pointer++];
+    protocol[temp_pointer] = 0;
+    temp_pointer = 0;
+    cout << "protocol: \"" << protocol << "\"\n";
+    while(isspace(buff[buff_pointer]) && temp_pointer < sizeof(mode) - 1) buff_pointer++;
 
     if(stricmp(mode, "GET") && stricmp(mode, "POST")){
         unimplement(client_sock);
         return 0;
     }
+
+    if(resource[strlen(resource)-1] == '/') strcat(resources_path, strcat(resource, "index.html"));
+    else strcat(resources_path, resource);
+    cout<<"complete path: \""<<resources_path<<"\""<<endl;
+    cout<<"-------------------------------------------------------------"<<endl;
+//    struct stat file_path_status;
+//    if(stat(resources_path, &file_path_status) == -1){
+//        while(chars_count > 0)
+//        chars_count = get_line(client_sock, buff, sizeof(buff));
+//        resource_not_found(client_sock);
+//    }
+//    else
 
     return 0;
 }
@@ -118,15 +141,15 @@ int main() {
     sockaddr_in client_addr;
     int client_addr_len = sizeof(client_addr);
     cout<<"服务启动，正在监听"<<port<<"端口"<<endl;
+    cout<<"-------------------------------------------------------------"<<endl;
     //循环等待提供服务
     while(1){
-//        cout<<"a";
-        //创建用户套接字
+        //用户套接字
         int client_sock = accept(server_sock, (sockaddr*)&client_addr, &client_addr_len);
         if(client_sock < 0) error_die("创建客户套接字失败");
         //创建线程（windows线程）
         DWORD threadID = 0;
-        CreateThread(0, 0, accept_request, (void*)client_sock, 0, &threadID);
+        CreateThread(0, 0, accept_request, (void*)(long long)client_sock, 0, &threadID);
     }
 //    closesocket(server_sock);
 //    return 0;
