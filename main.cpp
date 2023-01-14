@@ -64,7 +64,7 @@ int get_line(int sock, char *buff, int size){
     int i = 0;
     while(charRecv!='\n' && i<size-1){
         if(recv(sock, &charRecv, 1, 0) > 0){
-            if(charRecv=='r'){
+            if(charRecv=='\r'){
                 if(recv(sock, &charRecv, 1, MSG_PEEK)>0 && charRecv=='\n') recv(sock, &charRecv, 1, 0);
                 else charRecv = '\n';
             }
@@ -104,12 +104,18 @@ void send_header(SOCKET client_socket){
 //发送响应包资源内容
 void send_content(SOCKET client_socket, ifstream *file){
     char buff[4096];
+    int count = 0;
     string line;
     while(getline(*file, line)){
-        cout << line << endl;
-        strcpy(buff, line.data());
-        send(client_socket, buff, strlen(buff), 0);
+        if(line.empty()) continue;
+        else{
+            strcpy(buff, line.data());
+//            cout << buff << endl;
+            send(client_socket, buff, strlen(buff), 0);
+            count += line.length();
+        }
     }
+    cout<<count<<" byte has been sent"<<endl;
 }
 
 //发送请求的资源文件
@@ -117,14 +123,13 @@ void send_server_file(SOCKET client_socket, const char *file_name){
     int chars_count = 1;
     char buff[1024];
     //读完剩余请求
-    while(chars_count > 0 && strcmp(buff, "\n")) chars_count = get_line(client_socket, buff, sizeof(buff));
+//    while(chars_count > 0 && strcmp(buff, "\n")) chars_count = get_line(client_socket, buff, sizeof(buff));
     //读取资源文件
     ifstream in_file;
     in_file.open(file_name);
     if (in_file.is_open()){
         send_header(client_socket);
         send_content(client_socket, &in_file);
-        cout<<"The resource has been sent！"<<endl;
     }
     else resource_not_found(client_socket, file_name);
     in_file.close();
@@ -135,39 +140,43 @@ void send_server_file(SOCKET client_socket, const char *file_name){
 DWORD WINAPI accept_request(LPVOID arg){
     //解析套接字请求
     char resources_path[100] = "resources";  //资源目录名
+    char head[1024];
     char buff[1024];    //存一行请求报文
     char mode[200]; //存请求方法名
     char resource[200]; //存请求URL
     char protocol[200];   //存请求协议版本
-    int buff_pointer = 0, temp_pointer = 0;
+    int head_pointer = 0, temp_pointer = 0;
     int client_sock = (SOCKET)arg;  //传入参数
     int chars_count;    //报文每行字符数
 
     //读取首行
-    chars_count = get_line(client_sock, buff, sizeof(buff));
-    cout<<GetCurrentThreadId()<<endl;
-    cout<<"In "<<__func__ <<" line"<<__LINE__<<":\nrequest: "<<buff;
+    chars_count = get_line(client_sock, head, sizeof(head));
+    while(chars_count > 0 && strcmp(buff, "\n")){
+        chars_count = get_line(client_sock, buff, sizeof(buff));
+    }
+    cout<<"In thread "<<GetCurrentThreadId()<<":\nrequest: "<<head;
+//    cout<<"In "<<__func__ <<" line"<<__LINE__<<":\nrequest: "<<head;
 
     //解析方法名
-    while(!isspace(buff[buff_pointer]) && temp_pointer < sizeof(mode) - 1) mode[temp_pointer++] = buff[buff_pointer++];
+    while(!isspace(head[head_pointer]) && temp_pointer < sizeof(mode) - 1) mode[temp_pointer++] = head[head_pointer++];
     mode[temp_pointer] = 0;
     temp_pointer = 0;
-    cout<<"mode: \""<<mode<<"\"\n";
-    while(isspace(buff[buff_pointer]) && temp_pointer < sizeof(mode) - 1) buff_pointer++;
+//    cout<<"mode: \""<<mode<<"\"\n";
+    while(isspace(head[head_pointer]) && temp_pointer < sizeof(mode) - 1) head_pointer++;
 
     //解析URL
-    while(!isspace(buff[buff_pointer]) && temp_pointer < sizeof(mode) - 1) resource[temp_pointer++] = buff[buff_pointer++];
+    while(!isspace(head[head_pointer]) && temp_pointer < sizeof(mode) - 1) resource[temp_pointer++] = head[head_pointer++];
     resource[temp_pointer] = 0;
     temp_pointer = 0;
-    cout << "resource: \"" << resource << "\"\n";
-    while(isspace(buff[buff_pointer]) && temp_pointer < sizeof(mode) - 1) buff_pointer++;
+//    cout << "resource: \"" << resource << "\"\n";
+    while(isspace(head[head_pointer]) && temp_pointer < sizeof(mode) - 1) head_pointer++;
 
     //解析协议版本
-    while(!isspace(buff[buff_pointer]) && temp_pointer < sizeof(mode) - 1) protocol[temp_pointer++] = buff[buff_pointer++];
+    while(!isspace(head[head_pointer]) && temp_pointer < sizeof(mode) - 1) protocol[temp_pointer++] = head[head_pointer++];
     protocol[temp_pointer] = 0;
     temp_pointer = 0;
-    cout << "protocol: \"" << protocol << "\"\n";
-    while(isspace(buff[buff_pointer]) && temp_pointer < sizeof(mode) - 1) buff_pointer++;
+//    cout << "protocol: \"" << protocol << "\"\n";
+    while(isspace(head[head_pointer]) && temp_pointer < sizeof(mode) - 1) head_pointer++;
 
     //stricom()用于不区分大小写比较字符串，返回字符串差值(相同则0)，若方法名合法则取消实现
     if(stricmp(mode, "GET") && stricmp(mode, "POST")){
@@ -183,7 +192,7 @@ DWORD WINAPI accept_request(LPVOID arg){
     struct stat file_path_status;   //用于存储resources_path文件状态
     if(stat(resources_path, &file_path_status) == -1){  //若获取文件状态失败，返回-1
         //读取剩余请求报文部分
-        while(chars_count > 0 && strcmp(buff, "\n")) chars_count = get_line(client_sock, buff, sizeof(buff));
+//        while(chars_count > 0 && strcmp(buff, "\n")) chars_count = get_line(client_sock, buff, sizeof(buff));
         resource_not_found(client_sock, resources_path);
     }
     else{
@@ -192,8 +201,8 @@ DWORD WINAPI accept_request(LPVOID arg){
             strcat(resources_path, "/index.html");
         }
     }
-    cout<<"complete path: \""<<resources_path<<"\""<<endl;
 
+    cout<<"sending "<<resources_path<<endl;
     send_server_file(client_sock, resources_path);
     closesocket(client_sock);
     cout<<"-------------------------------------------------------------"<<endl;
