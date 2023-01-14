@@ -1,4 +1,5 @@
 #include <iostream>
+#include <fstream>
 #include <winsock2.h>
 #include <string.h>
 #include <sys/types.h>
@@ -81,14 +82,53 @@ void unimplement(SOCKET client_socket){
 //    todo
 }
 
-void resource_not_found(SOCKET client_socket){
+//资源不存在处理
+void resource_not_found(SOCKET client_socket, const char *file_name){
     cout<<"notfound!"<<endl;
 //    todo
 }
 
-void send_server_file(SOCKET client_socket, const char *path){
-    cout<<"send！"<<endl;
-//    todo
+//发送响应包头信息
+void send_header(SOCKET client_socket){
+    char buff[1024];
+    strcpy(buff, "HTTP/1.1 200 OK\r\n");
+    send(client_socket, buff, strlen(buff), 0);
+    strcpy(buff, "Server: MercuriusHttpd/0.1\r\n");
+    send(client_socket, buff, strlen(buff), 0);
+    strcpy(buff, "Content-type:text/html\r\n");
+    send(client_socket, buff, strlen(buff), 0);
+    strcpy(buff, "\r\n");
+    send(client_socket, buff, strlen(buff), 0);
+}
+
+//发送响应包资源内容
+void send_content(SOCKET client_socket, ifstream *file){
+    char buff[4096];
+    string line;
+    while(getline(*file, line)){
+        cout << line << endl;
+        strcpy(buff, line.data());
+        send(client_socket, buff, strlen(buff), 0);
+    }
+}
+
+//发送请求的资源文件
+void send_server_file(SOCKET client_socket, const char *file_name){
+    int chars_count = 1;
+    char buff[1024];
+    //读完剩余请求
+    while(chars_count > 0 && strcmp(buff, "\n")) chars_count = get_line(client_socket, buff, sizeof(buff));
+    //读取资源文件
+    ifstream in_file;
+    in_file.open(file_name);
+    if (in_file.is_open()){
+        send_header(client_socket);
+        send_content(client_socket, &in_file);
+        cout<<"The resource has been sent！"<<endl;
+    }
+    else resource_not_found(client_socket, file_name);
+    in_file.close();
+
 }
 
 //处理请求线程函数
@@ -105,6 +145,7 @@ DWORD WINAPI accept_request(LPVOID arg){
 
     //读取首行
     chars_count = get_line(client_sock, buff, sizeof(buff));
+    cout<<GetCurrentThreadId()<<endl;
     cout<<"In "<<__func__ <<" line"<<__LINE__<<":\nrequest: "<<buff;
 
     //解析方法名
@@ -140,12 +181,10 @@ DWORD WINAPI accept_request(LPVOID arg){
 
     //判断resources_path是否为目录
     struct stat file_path_status;   //用于存储resources_path文件状态
-    cout<<"complete path: \""<<resources_path<<"\""<<endl;
-//    cout<<stat(resources_path, &file_path_status)<<":"<<strerror(errno)<<endl;
     if(stat(resources_path, &file_path_status) == -1){  //若获取文件状态失败，返回-1
         //读取剩余请求报文部分
         while(chars_count > 0 && strcmp(buff, "\n")) chars_count = get_line(client_sock, buff, sizeof(buff));
-        resource_not_found(client_sock);
+        resource_not_found(client_sock, resources_path);
     }
     else{
         //mode和S_IFMT进行与操作后得到路径状态，S_IFDIR为目录状态
@@ -153,7 +192,7 @@ DWORD WINAPI accept_request(LPVOID arg){
             strcat(resources_path, "/index.html");
         }
     }
-
+    cout<<"complete path: \""<<resources_path<<"\""<<endl;
 
     send_server_file(client_sock, resources_path);
     closesocket(client_sock);
@@ -166,7 +205,7 @@ int main() {
     int server_sock = startup(&port);
     sockaddr_in client_addr;
     int client_addr_len = sizeof(client_addr);
-    cout<<"服务启动，正在监听"<<port<<"端口"<<endl;
+    cout<<"Service started, listening port:"<<port<<endl;
     cout<<"-------------------------------------------------------------"<<endl;
     //循环等待提供服务
     while(1){
@@ -174,7 +213,7 @@ int main() {
         int client_sock = accept(server_sock, (sockaddr*)&client_addr, &client_addr_len);
         if(client_sock < 0) error_die("创建客户套接字失败");
         //创建线程（windows线程）
-        DWORD threadID = 0;
+        DWORD threadID;
         //创建线程后进入accept_request函数，client_sock作为其参数
         CreateThread(0, 0, accept_request, (void*)(long long)client_sock, 0, &threadID);
     }
