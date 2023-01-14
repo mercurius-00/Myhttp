@@ -2,7 +2,7 @@
 #include <fstream>
 #include <winsock2.h>
 #include <string.h>
-#include <sys/types.h>
+//#include <sys/types.h>
 #include <sys/stat.h>
 #pragma comment(lib, "ws2_32.lib")
 using namespace std;
@@ -110,7 +110,6 @@ void send_content(SOCKET client_socket, ifstream *file){
         if(line.empty()) continue;
         else{
             strcpy(buff, line.data());
-//            cout << buff << endl;
             send(client_socket, buff, strlen(buff), 0);
             count += line.length();
         }
@@ -120,10 +119,6 @@ void send_content(SOCKET client_socket, ifstream *file){
 
 //发送请求的资源文件
 void send_server_file(SOCKET client_socket, const char *file_name){
-    int chars_count = 1;
-    char buff[1024];
-    //读完剩余请求
-//    while(chars_count > 0 && strcmp(buff, "\n")) chars_count = get_line(client_socket, buff, sizeof(buff));
     //读取资源文件
     ifstream in_file;
     in_file.open(file_name);
@@ -181,7 +176,7 @@ DWORD WINAPI accept_request(LPVOID arg){
     //stricom()用于不区分大小写比较字符串，返回字符串差值(相同则0)，若方法名合法则取消实现
     if(stricmp(mode, "GET") && stricmp(mode, "POST")){
         unimplement(client_sock);
-        return 0;
+        return 1;
     }
 
     //获取资源完整路径
@@ -191,9 +186,8 @@ DWORD WINAPI accept_request(LPVOID arg){
     //判断resources_path是否为目录
     struct stat file_path_status;   //用于存储resources_path文件状态
     if(stat(resources_path, &file_path_status) == -1){  //若获取文件状态失败，返回-1
-        //读取剩余请求报文部分
-//        while(chars_count > 0 && strcmp(buff, "\n")) chars_count = get_line(client_sock, buff, sizeof(buff));
         resource_not_found(client_sock, resources_path);
+        return 1;
     }
     else{
         //mode和S_IFMT进行与操作后得到路径状态，S_IFDIR为目录状态
@@ -226,6 +220,4 @@ int main() {
         //创建线程后进入accept_request函数，client_sock作为其参数
         CreateThread(0, 0, accept_request, (void*)(long long)client_sock, 0, &threadID);
     }
-//    closesocket(server_sock);
-//    return 0;
 }
