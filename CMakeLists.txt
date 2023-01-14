@@ -5,4 +5,6 @@ set(CMAKE_CXX_STANDARD 17)
 link_libraries(ws2_32 wsock32)
 
 add_executable(httpd_demo main.cpp)
+#configure_file(resources/index.html ${CMAKE_BINARY_DIR}/index.html COPYONLY)
+
 

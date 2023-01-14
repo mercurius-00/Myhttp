@@ -1,5 +1,6 @@
 #include <iostream>
 #include <winsock2.h>
+#include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #pragma comment(lib, "ws2_32.lib")
@@ -76,62 +77,87 @@ int get_line(int sock, char *buff, int size){
 
 //取消实现
 void unimplement(SOCKET client_socket){
+    cout<<"unimplemented！"<<endl;
 //    todo
 }
 
 void resource_not_found(SOCKET client_socket){
+    cout<<"notfound!"<<endl;
+//    todo
+}
+
+void send_server_file(SOCKET client_socket, const char *path){
+    cout<<"send！"<<endl;
 //    todo
 }
 
 //处理请求线程函数
 DWORD WINAPI accept_request(LPVOID arg){
     //解析套接字请求
-    char resources_path[10] = "Resources";  //资源目录名
-    char buff[1024];    //存整个请求报文
+    char resources_path[100] = "resources";  //资源目录名
+    char buff[1024];    //存一行请求报文
     char mode[200]; //存请求方法名
     char resource[200]; //存请求URL
     char protocol[200];   //存请求协议版本
     int buff_pointer = 0, temp_pointer = 0;
-    int client_sock = (SOCKET)arg;
-    int chars_count;
-    get_line(client_sock, buff, sizeof(buff));
+    int client_sock = (SOCKET)arg;  //传入参数
+    int chars_count;    //报文每行字符数
+
+    //读取首行
+    chars_count = get_line(client_sock, buff, sizeof(buff));
     cout<<"In "<<__func__ <<" line"<<__LINE__<<":\nrequest: "<<buff;
 
+    //解析方法名
     while(!isspace(buff[buff_pointer]) && temp_pointer < sizeof(mode) - 1) mode[temp_pointer++] = buff[buff_pointer++];
     mode[temp_pointer] = 0;
     temp_pointer = 0;
     cout<<"mode: \""<<mode<<"\"\n";
     while(isspace(buff[buff_pointer]) && temp_pointer < sizeof(mode) - 1) buff_pointer++;
 
+    //解析URL
     while(!isspace(buff[buff_pointer]) && temp_pointer < sizeof(mode) - 1) resource[temp_pointer++] = buff[buff_pointer++];
     resource[temp_pointer] = 0;
     temp_pointer = 0;
     cout << "resource: \"" << resource << "\"\n";
     while(isspace(buff[buff_pointer]) && temp_pointer < sizeof(mode) - 1) buff_pointer++;
 
+    //解析协议版本
     while(!isspace(buff[buff_pointer]) && temp_pointer < sizeof(mode) - 1) protocol[temp_pointer++] = buff[buff_pointer++];
     protocol[temp_pointer] = 0;
     temp_pointer = 0;
     cout << "protocol: \"" << protocol << "\"\n";
     while(isspace(buff[buff_pointer]) && temp_pointer < sizeof(mode) - 1) buff_pointer++;
 
+    //stricom()用于不区分大小写比较字符串，返回字符串差值(相同则0)，若方法名合法则取消实现
     if(stricmp(mode, "GET") && stricmp(mode, "POST")){
         unimplement(client_sock);
         return 0;
     }
 
+    //获取资源完整路径
     if(resource[strlen(resource)-1] == '/') strcat(resources_path, strcat(resource, "index.html"));
     else strcat(resources_path, resource);
-    cout<<"complete path: \""<<resources_path<<"\""<<endl;
-    cout<<"-------------------------------------------------------------"<<endl;
-//    struct stat file_path_status;
-//    if(stat(resources_path, &file_path_status) == -1){
-//        while(chars_count > 0)
-//        chars_count = get_line(client_sock, buff, sizeof(buff));
-//        resource_not_found(client_sock);
-//    }
-//    else
 
+    //判断resources_path是否为目录
+    struct stat file_path_status;   //用于存储resources_path文件状态
+    cout<<"complete path: \""<<resources_path<<"\""<<endl;
+//    cout<<stat(resources_path, &file_path_status)<<":"<<strerror(errno)<<endl;
+    if(stat(resources_path, &file_path_status) == -1){  //若获取文件状态失败，返回-1
+        //读取剩余请求报文部分
+        while(chars_count > 0 && strcmp(buff, "\n")) chars_count = get_line(client_sock, buff, sizeof(buff));
+        resource_not_found(client_sock);
+    }
+    else{
+        //mode和S_IFMT进行与操作后得到路径状态，S_IFDIR为目录状态
+        if((file_path_status.st_mode & S_IFMT) == S_IFDIR){
+            strcat(resources_path, "/index.html");
+        }
+    }
+
+
+    send_server_file(client_sock, resources_path);
+    closesocket(client_sock);
+    cout<<"-------------------------------------------------------------"<<endl;
     return 0;
 }
 
@@ -149,6 +175,7 @@ int main() {
         if(client_sock < 0) error_die("创建客户套接字失败");
         //创建线程（windows线程）
         DWORD threadID = 0;
+        //创建线程后进入accept_request函数，client_sock作为其参数
         CreateThread(0, 0, accept_request, (void*)(long long)client_sock, 0, &threadID);
     }
 //    closesocket(server_sock);
