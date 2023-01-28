@@ -137,16 +137,29 @@ void send_header(SOCKET client_socket, const char *resource_type){
 }
 
 //发送响应包资源内容
-void send_content(SOCKET client_socket, ifstream *file){
-    char buff[4096];
+void send_content(SOCKET client_socket, ifstream *file, bool file_is_binary){
     int count = 0;
-    string line;
-    while(getline(*file, line)){
-        if(line.empty()) continue;
-        else{
-            strcpy(buff, line.data());
-            send(client_socket, buff, strlen(buff), 0);
-            count += line.length();
+    int buffer_length;
+    if(file_is_binary){
+        file->seekg (0, file->end);
+        buffer_length = file->tellg();
+        file->seekg (0, file->beg);
+        char * buffer = new char [buffer_length];
+        file->read(buffer, buffer_length);
+        send(client_socket, buffer, buffer_length, 0);
+        count = file->gcount();
+    }
+    else{
+        char * buffer = new char [4096];
+        string line;
+        while(getline(*file, line)){
+            if(line.empty()) continue;
+            else{
+                strcpy(buffer, line.data());
+                buffer_length = strlen(buffer);
+                send(client_socket, buffer, buffer_length, 0);
+                count += line.length();
+            }
         }
     }
     print_color(count, 'g');
@@ -165,7 +178,7 @@ void send_server_file(SOCKET client_socket, const char *file_name){
     else in_file.open(file_name);
     if (in_file.is_open()){
         send_header(client_socket, file_type);
-        send_content(client_socket, &in_file);
+        send_content(client_socket, &in_file, binary.count(file_type));
     }
     else resource_not_found(client_socket, file_name);
     in_file.close();
