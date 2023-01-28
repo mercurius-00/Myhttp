@@ -56,6 +56,20 @@ void unimplement(SOCKET client_socket){
 //    todo
 }
 
+const char *get_content_type(const char *file_name){
+    const char *p = file_name, *file_type;
+    while(*p++) if(*p=='.') file_type = p+1;
+    if(!strcmp(file_type, "html")) file_type="text/html";
+    else if(!strcmp(file_type, "css")) file_type="text/css";
+    else if(!strcmp(file_type, "jpg")) file_type="image/jpeg";
+    else if(!strcmp(file_type, "jpeg")) file_type="image/jpeg";
+    else if(!strcmp(file_type, "png")) file_type="image/png";
+    else if(!strcmp(file_type, "gif")) file_type="image/gif";
+    else if(!strcmp(file_type, "js")) file_type="application/x-javascript";
+    else(error_die("content type文件类型不存在"));
+    return file_type;
+}
+
 //资源不存在处理
 void resource_not_found(SOCKET client_socket, const char *file_name){
     print_color("notfound!\n", 'r');
@@ -173,17 +187,19 @@ void send_content(SOCKET client_socket, ifstream *file, bool file_is_binary){
 
 //发送请求的资源文件(包含send_header()与send_content())
 void send_server_file(SOCKET client_socket, const char *file_name){
-    unordered_set<string> binary = {"jpg","jpeg","png","gif","ico"};
-    const char *p = file_name, *file_type;
+    bool binary = false;
     //检测后缀名
-    while(*p++) if(*p=='.') file_type = p+1;
+    const char *file_type = get_content_type(file_name);
+    string str = file_type;
+    str = str.substr(0, str.find('/'));
+    if(str=="image") binary = true;
     //读取资源文件
     ifstream in_file;
-    if(binary.count(file_type)) in_file.open(file_name, ifstream::binary);
+    if(binary) in_file.open(file_name, ifstream::binary);
     else in_file.open(file_name);
     if (in_file.is_open()){
         send_header(client_socket, file_type);
-        send_content(client_socket, &in_file, binary.count(file_type));
+        send_content(client_socket, &in_file, binary);
     }
     else resource_not_found(client_socket, file_name);
     in_file.close();
