@@ -8,6 +8,9 @@
 #pragma comment(lib, "ws2_32.lib")
 using namespace std;
 
+void send_header(SOCKET client_socket, const char *resource_type);
+void send_content(SOCKET client_socket, ifstream *file, bool file_is_binary);
+
 //彩色输出
 void print_color(string str, char color){
     switch (color) {
@@ -56,7 +59,10 @@ void unimplement(SOCKET client_socket){
 //资源不存在处理
 void resource_not_found(SOCKET client_socket, const char *file_name){
     print_color("notfound!\n", 'r');
-//    todo
+    send_header(client_socket, "404");
+    ifstream in_file("resources/404.html");
+    send_content(client_socket, &in_file, FALSE);
+    cout<<"-----------------------------------------"<<endl;
 }
 
 //网络通信初始化(返回socket)
@@ -123,14 +129,13 @@ int get_line(int sock, char *buff, int size){
 void send_header(SOCKET client_socket, const char *resource_type){
     char buff[1024], content_type[20] = "Content-type:";
     unordered_set<string> binary = {"jpg","jpeg","png","gif","ico"};
-    strcpy(buff, "HTTP/1.1 200 OK\r\n");
+    if(strcmp(resource_type, "404")) strcpy(buff, "HTTP/1.1 404 NOT FOUND\r\n");
+    else strcpy(buff, "HTTP/1.1 200 OK\r\n");
     send(client_socket, buff, strlen(buff), 0);
     strcpy(buff, "Server: MercuriusHttpd/0.1\r\n");
     send(client_socket, buff, strlen(buff), 0);
-//    cout<<strcat(strcat(strcat(content_type, "image/"), resource_type), "\r\n");
     if(binary.count(resource_type)) strcpy(buff, strcat(strcat(strcat(content_type, "image/"), resource_type), "\r\n"));
     else strcpy(buff, "Content-type:text/html\r\n");
-    cout<<buff;
     send(client_socket, buff, strlen(buff), 0);
     strcpy(buff, "\r\n");
     send(client_socket, buff, strlen(buff), 0);
@@ -139,7 +144,7 @@ void send_header(SOCKET client_socket, const char *resource_type){
 //发送响应包资源内容
 void send_content(SOCKET client_socket, ifstream *file, bool file_is_binary){
     int count = 0;
-    int buffer_length;
+    int buffer_length = 0;
     if(file_is_binary){
         file->seekg (0, file->end);
         buffer_length = file->tellg();
@@ -235,6 +240,7 @@ DWORD WINAPI accept_request(LPVOID arg){
     //判断resources_path是否为目录
     struct stat file_path_status;   //用于存储resources_path文件状态
     if(stat(resources_path, &file_path_status) == -1){  //若获取文件状态失败，返回-1
+        cout<<124142<<endl;
         resource_not_found(client_sock, resources_path);
         return 1;
     }
@@ -252,7 +258,7 @@ DWORD WINAPI accept_request(LPVOID arg){
     return 0;
 }
 
-int main() {
+ int main() {
     unsigned short port = 8990;
     int server_sock = startup(&port);
     sockaddr_in client_addr;
