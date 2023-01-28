@@ -2,15 +2,61 @@
 #include <fstream>
 #include <winsock2.h>
 #include <string.h>
-//#include <sys/types.h>
 #include <sys/stat.h>
+#include <unordered_set>
+
 #pragma comment(lib, "ws2_32.lib")
 using namespace std;
+
+//彩色输出
+void print_color(string str, char color){
+    switch (color) {
+        case 'r':
+            SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), FOREGROUND_INTENSITY | FOREGROUND_RED);
+            break;
+        case 'g':
+            SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), FOREGROUND_INTENSITY | FOREGROUND_GREEN);
+            break;
+        case 'b':
+            SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), FOREGROUND_INTENSITY | FOREGROUND_BLUE);
+            break;
+    }
+    cout<<str;
+    SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), FOREGROUND_INTENSITY | FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
+}
+void print_color(int str, char color){
+    switch (color) {
+        case 'r':
+            SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), FOREGROUND_INTENSITY | FOREGROUND_RED);
+            break;
+        case 'g':
+            SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), FOREGROUND_INTENSITY | FOREGROUND_GREEN);
+            break;
+        case 'b':
+            SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), FOREGROUND_INTENSITY | FOREGROUND_BLUE);
+            break;
+    }
+    cout<<str;
+    SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), FOREGROUND_INTENSITY | FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
+}
 
 //错误处理
 void error_die(const char *str){
     perror(str);
+    print_color(&str['\n'], 'r');
     exit(1);
+}
+
+//取消实现
+void unimplement(SOCKET client_socket){
+    print_color("unimplemented！\n", 'r');
+//    todo
+}
+
+//资源不存在处理
+void resource_not_found(SOCKET client_socket, const char *file_name){
+    print_color("notfound!\n", 'r');
+//    todo
 }
 
 //网络通信初始化(返回socket)
@@ -52,10 +98,7 @@ int startup(unsigned short *port){
 
     //创建监听队列
     if(listen(server_socket, 5)) error_die("创建监听队列失败");
-
     return server_socket;
-
-
 }
 
 //从套接字读取一行(返回读取数据字节数)
@@ -76,26 +119,18 @@ int get_line(int sock, char *buff, int size){
     return i;
 }
 
-//取消实现
-void unimplement(SOCKET client_socket){
-    cout<<"unimplemented！"<<endl;
-//    todo
-}
-
-//资源不存在处理
-void resource_not_found(SOCKET client_socket, const char *file_name){
-    cout<<"notfound!"<<endl;
-//    todo
-}
-
 //发送响应包头信息
-void send_header(SOCKET client_socket){
-    char buff[1024];
+void send_header(SOCKET client_socket, const char *resource_type){
+    char buff[1024], content_type[20] = "Content-type:";
+    unordered_set<string> binary = {"jpg","jpeg","png","gif","ico"};
     strcpy(buff, "HTTP/1.1 200 OK\r\n");
     send(client_socket, buff, strlen(buff), 0);
     strcpy(buff, "Server: MercuriusHttpd/0.1\r\n");
     send(client_socket, buff, strlen(buff), 0);
-    strcpy(buff, "Content-type:text/html\r\n");
+//    cout<<strcat(strcat(strcat(content_type, "image/"), resource_type), "\r\n");
+    if(binary.count(resource_type)) strcpy(buff, strcat(strcat(strcat(content_type, "image/"), resource_type), "\r\n"));
+    else strcpy(buff, "Content-type:text/html\r\n");
+    cout<<buff;
     send(client_socket, buff, strlen(buff), 0);
     strcpy(buff, "\r\n");
     send(client_socket, buff, strlen(buff), 0);
@@ -114,21 +149,26 @@ void send_content(SOCKET client_socket, ifstream *file){
             count += line.length();
         }
     }
-    cout<<count<<" byte has been sent"<<endl;
+    print_color(count, 'g');
+    print_color(" byte has been sent!\n", 'g');
 }
 
-//发送请求的资源文件
+//发送请求的资源文件(包含send_header()与send_content())
 void send_server_file(SOCKET client_socket, const char *file_name){
+    unordered_set<string> binary = {"jpg","jpeg","png","gif","ico"};
+    const char *p = file_name, *file_type;
+    //检测后缀名
+    while(*p++) if(*p=='.') file_type = p+1;
     //读取资源文件
     ifstream in_file;
-    in_file.open(file_name);
+    if(binary.count(file_type)) in_file.open(file_name, ifstream::binary);
+    else in_file.open(file_name);
     if (in_file.is_open()){
-        send_header(client_socket);
+        send_header(client_socket, file_type);
         send_content(client_socket, &in_file);
     }
     else resource_not_found(client_socket, file_name);
     in_file.close();
-
 }
 
 //处理请求线程函数
@@ -144,33 +184,29 @@ DWORD WINAPI accept_request(LPVOID arg){
     int client_sock = (SOCKET)arg;  //传入参数
     int chars_count;    //报文每行字符数
 
-    //读取首行
+    //读取首行并读完剩余行
     chars_count = get_line(client_sock, head, sizeof(head));
     while(chars_count > 0 && strcmp(buff, "\n")){
         chars_count = get_line(client_sock, buff, sizeof(buff));
     }
     cout<<"In thread "<<GetCurrentThreadId()<<":\nrequest: "<<head;
-//    cout<<"In "<<__func__ <<" line"<<__LINE__<<":\nrequest: "<<head;
 
     //解析方法名
     while(!isspace(head[head_pointer]) && temp_pointer < sizeof(mode) - 1) mode[temp_pointer++] = head[head_pointer++];
     mode[temp_pointer] = 0;
     temp_pointer = 0;
-//    cout<<"mode: \""<<mode<<"\"\n";
     while(isspace(head[head_pointer]) && temp_pointer < sizeof(mode) - 1) head_pointer++;
 
     //解析URL
     while(!isspace(head[head_pointer]) && temp_pointer < sizeof(mode) - 1) resource[temp_pointer++] = head[head_pointer++];
     resource[temp_pointer] = 0;
     temp_pointer = 0;
-//    cout << "resource: \"" << resource << "\"\n";
     while(isspace(head[head_pointer]) && temp_pointer < sizeof(mode) - 1) head_pointer++;
 
     //解析协议版本
     while(!isspace(head[head_pointer]) && temp_pointer < sizeof(mode) - 1) protocol[temp_pointer++] = head[head_pointer++];
     protocol[temp_pointer] = 0;
     temp_pointer = 0;
-//    cout << "protocol: \"" << protocol << "\"\n";
     while(isspace(head[head_pointer]) && temp_pointer < sizeof(mode) - 1) head_pointer++;
 
     //stricom()用于不区分大小写比较字符串，返回字符串差值(相同则0)，若方法名合法则取消实现
@@ -199,7 +235,7 @@ DWORD WINAPI accept_request(LPVOID arg){
     cout<<"sending "<<resources_path<<endl;
     send_server_file(client_sock, resources_path);
     closesocket(client_sock);
-    cout<<"-------------------------------------------------------------"<<endl;
+    cout<<"-----------------------------------------"<<endl;
     return 0;
 }
 
@@ -208,8 +244,10 @@ int main() {
     int server_sock = startup(&port);
     sockaddr_in client_addr;
     int client_addr_len = sizeof(client_addr);
-    cout<<"Service started, listening port:"<<port<<endl;
-    cout<<"-------------------------------------------------------------"<<endl;
+    print_color("Service started\tListening port:", 'g');
+    print_color(port, 'g');
+    cout<<endl;
+    cout<<"-----------------------------------------"<<endl;
     //循环等待提供服务
     while(1){
         //用户套接字
