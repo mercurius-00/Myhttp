@@ -248,13 +248,31 @@ CMAKE_STRIP:FILEPATH=A:/Program Files/JetBrains/CLion 2022.3.1/bin/mingw/bin/str
 CMAKE_VERBOSE_MAKEFILE:BOOL=FALSE
 
 //Value Computed by CMake
-httpd_demo_BINARY_DIR:STATIC=D:/ClionFolder/CLionProjects/Myhttp/cmake-build-debug
+Project_BINARY_DIR:STATIC=D:/ClionFolder/CLionProjects/Myhttp/cmake-build-debug
 
 //Value Computed by CMake
-httpd_demo_IS_TOP_LEVEL:STATIC=ON
+Project_IS_TOP_LEVEL:STATIC=ON
 
 //Value Computed by CMake
-httpd_demo_SOURCE_DIR:STATIC=D:/ClionFolder/CLionProjects/Myhttp
+Project_SOURCE_DIR:STATIC=D:/ClionFolder/CLionProjects/Myhttp
+
+//Value Computed by CMake
+directory_test_BINARY_DIR:STATIC=D:/ClionFolder/CLionProjects/Myhttp/cmake-build-debug
+
+//Value Computed by CMake
+directory_test_IS_TOP_LEVEL:STATIC=ON
+
+//Value Computed by CMake
+directory_test_SOURCE_DIR:STATIC=D:/ClionFolder/CLionProjects/Myhttp
+
+//Value Computed by CMake
+httpd_demo_BINARY_DIR:STATIC=D:/ClionFolder/CLionProjects/Myhttp/cmake-build-debug/src
+
+//Value Computed by CMake
+httpd_demo_IS_TOP_LEVEL:STATIC=OFF
+
+//Value Computed by CMake
+httpd_demo_SOURCE_DIR:STATIC=D:/ClionFolder/CLionProjects/Myhttp/src
 
 
 ########################
@@ -367,7 +385,7 @@ CMAKE_MODULE_LINKER_FLAGS_RELWITHDEBINFO-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CMAKE_NM
 CMAKE_NM-ADVANCED:INTERNAL=1
 //number of local generators
-CMAKE_NUMBER_OF_MAKEFILES:INTERNAL=1
+CMAKE_NUMBER_OF_MAKEFILES:INTERNAL=2
 //ADVANCED property for variable: CMAKE_OBJCOPY
 CMAKE_OBJCOPY-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CMAKE_OBJDUMP
